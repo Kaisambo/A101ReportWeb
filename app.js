@@ -24,13 +24,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const reasonsContainer = document.getElementById("reasons-container");
   const btnAddReason     = document.getElementById("btn-add-reason");
 
-  const tgButton = document.getElementById("tg-button");
-
-  // ─── Telegram-бот ────────────────────────────────────────
-  if (tgButton && CONFIG.TG_BOT_LINK) {
-    tgButton.href = CONFIG.TG_BOT_LINK;
-  }
-
   // ─── Тип отчёта ─────────────────────────────────────────
   function setReportType(type) {
     reportTypeInput.value = type;
