@@ -1,0 +1,879 @@
+{
+  "name": "Аналитический отчёт по звонкам (v4 — модифицированный)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "2682c16c-6f27-4458-a400-ebd527d2f20c",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*",
+          "rawBody": false
+        }
+      },
+      "id": "4cf4e034-9878-4181-be74-0b74026d39a6",
+      "name": "Webhook (form POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        8624,
+        7792
+      ],
+      "webhookId": "2682c16c-6f27-4458-a400-ebd527d2f20c"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: \"accepted\", message: \"Запрос принят в работу\", reportType: $json.body?.reportType || $json.reportType, telegramUsername: $json.body?.telegramUsername || $json.telegramUsername }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "5cc79eae-1033-41ab-a1b6-00dc23c9f486",
+      "name": "Respond: Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        8816,
+        7632
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "client",
+              "value": "={{ $json.body?.client ?? $json.client }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "periodStart",
+              "value": "={{ $json.body?.periodStart ?? $json.periodStart }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "periodEnd",
+              "value": "={{ $json.body?.periodEnd ?? $json.periodEnd }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "employee",
+              "value": "={{ (($json.body?.employee || $json.employee || \"\").trim()) || \"Все сотрудники\" }}",
+              "type": "string"
+            },
+            {
+              "id": "a7",
+              "name": "uploadTimestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            },
+            {
+              "id": "a8",
+              "name": "archiveFolderId",
+              "value": "1d67yEl6SZeU4OFEGk77V_1Je4eeIuPNn",
+              "type": "string"
+            },
+            {
+              "id": "a10",
+              "name": "maxFilesFromArchive",
+              "value": "500",
+              "type": "string"
+            },
+            {
+              "id": "a-tg",
+              "name": "telegramUsername",
+              "value": "={{ (($json.body?.telegramUsername || $json.telegramUsername || \"\")).trim().replace(/^@/, \"\").toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "a-sheet",
+              "name": "archiveSheetId",
+              "value": "={{ (() => { const url = $json.body?.sheetUrl || $json.sheetUrl || $json.body?.sheetId || $json.sheetId || ''; const m = url.match(/\\/spreadsheets\\/d\\/([a-zA-Z0-9_-]+)/); return m ? m[1] : url; })() }}",
+              "type": "string"
+            },
+            {
+              "id": "a-sheet-name",
+              "name": "archiveSheetName",
+              "value": "={{ ($json.body?.sheetName ?? $json.sheetName ?? 'Лист1').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "a-reportType",
+              "name": "reportType",
+              "value": "={{ $json.body?.reportType ?? $json.reportType ?? 'employee' }}",
+              "type": "string"
+            },
+            {
+              "id": "a-reason1",
+              "name": "reason1",
+              "value": "={{ ($json.body?.reason1 ?? $json.reason1 ?? '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "a-reason2",
+              "name": "reason2",
+              "value": "={{ ($json.body?.reason2 ?? $json.reason2 ?? '').trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "793a2db5-7f5c-4bdf-9b2f-9d380bd75ffe",
+      "name": "Set Metadata",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        8848,
+        7792
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.archiveSheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.archiveSheetName }}"
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "ba9561cd-cf68-4fb4-b2f8-3b0103ece4c2",
+      "name": "Sheet: Read Transcripts",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        9072,
+        7792
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleApi": {
+          "id": "RmFICswEyjq9yw6V",
+          "name": "OrbitAI N8N Service Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// Читаем все строки из Sheet с колонками: «Звонок», «Текст».\n// Режем до maxFilesFromArchive, склеиваем в один fullText.\n// ============================================================\nconst items = $input.all();\nconst meta = $('Set Metadata').first().json;\n\nif (items.length === 0) {\n  throw new Error(\n    'Sheet вернул 0 строк.\\n' +\n    'Проверьте:\\n' +\n    '  • archiveSheetId в Set Metadata указан правильно\\n' +\n    '  • в листе «' + meta.archiveSheetName + '» есть данные\\n' +\n    '  • у credential Google Sheets есть доступ к этой таблице'\n  );\n}\n\nfunction pick(row, names) {\n  for (const n of names) {\n    if (row[n] !== undefined && row[n] !== null && String(row[n]).length > 0) {\n      return String(row[n]);\n    }\n  }\n  return '';\n}\n\nconst matched = [];\nconst skipped = { noTranscript: 0, noCallId: 0 };\n\nfor (const item of items) {\n  const r = item.json;\n  const transcript = pick(r, ['Текст', 'text', 'transcript']).trim();\n  if (!transcript) { skipped.noTranscript++; continue; }\n  const callIdRaw = pick(r, ['Звонок', 'call', 'call_id']).trim();\n  if (!callIdRaw) { skipped.noCallId++; continue; }\n  const m = callIdRaw.match(/#\\s*(\\S+)/);\n  const callNumber = m ? m[1] : callIdRaw;\n  matched.push({\n    callId: callIdRaw.startsWith('Звонок') ? callIdRaw : `Звонок #${callIdRaw}`,\n    callNumber,\n    transcript\n  });\n}\n\nif (matched.length === 0) {\n  throw new Error(\n    `Из ${items.length} строк ни одна не содержит валидных данных.\\n` +\n    `Без транскрипта: ${skipped.noTranscript}\\n` +\n    `Без идентификатора: ${skipped.noCallId}`\n  );\n}\n\nconst maxFiles = parseInt(meta.maxFilesFromArchive || '500', 10);\nconst limited = matched.slice(0, maxFiles);\n\nconst fullText = limited\n  .map((r, i) => {\n    const header = `Звонок #${i + 1} | ID: ${r.callId}`;\n    return header + '\\n\\n' + r.transcript;\n  })\n  .join('\\n\\n---\\n\\n');\n\nconst combinedLabel = `Архив (${limited.length} звонков из ${matched.length} в Sheet ${items.length})`;\n\nreturn [{\n  json: {\n    client:           meta.client,\n    periodStart:      meta.periodStart,\n    periodEnd:        meta.periodEnd,\n    employee:         meta.employee,\n    reportType:       meta.reportType,\n    reason1:          meta.reason1,\n    reason2:          meta.reason2,\n    fileName:         combinedLabel,\n    uploadTimestamp:  new Date().toISOString(),\n    sourceFiles:      limited.length,\n    matchedRows:      matched.length,\n    totalRowsInSheet: items.length,\n    skippedReasons:   skipped,\n    fullText\n  }\n}];"
+      },
+      "id": "379ef686-bb67-4039-a882-869cd90884de",
+      "name": "Filter & Combine from Sheet",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9296,
+        7792
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fullText = $json.fullText;\nconst metadata = {\n  client:      $json.client,\n  periodStart: $json.periodStart,\n  periodEnd:   $json.periodEnd,\n  employee:    $json.employee,\n  reportType:  $json.reportType,\n  reason1:     $json.reason1,\n  reason2:     $json.reason2,\n  fileName:    $json.fileName,\n  sourceFiles: $json.sourceFiles\n};\n\nconst callRegex = /^(Звонок #\\d+)/gm;\nconst calls = [];\nlet match;\n\nconst matches = [];\nwhile ((match = callRegex.exec(fullText)) !== null) {\n  matches.push({ key: match[1], index: match.index });\n}\n\nfor (let i = 0; i < matches.length; i++) {\n  const start = matches[i].index;\n  const end = i + 1 < matches.length ? matches[i + 1].index : fullText.length;\n  const callText = fullText.substring(start, end).trim();\n  if (callText) calls.push(callText);\n}\n\nconst CHUNK_SIZE = 50;\nconst chunks = [];\nfor (let i = 0; i < calls.length; i += CHUNK_SIZE) {\n  const chunkCalls = calls.slice(i, i + CHUNK_SIZE);\n  chunks.push({\n    json: {\n      ...metadata,\n      chunkIndex: Math.floor(i / CHUNK_SIZE),\n      totalChunks: Math.ceil(calls.length / CHUNK_SIZE),\n      callsInChunk: chunkCalls.length,\n      totalCalls: calls.length,\n      chunkText: chunkCalls.join('\\n\\n')\n    }\n  });\n}\n\nreturn chunks;\n"
+      },
+      "id": "ed2e6504-a35f-492f-962a-6af205f818c3",
+      "name": "Chunk Parser",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9520,
+        7792
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "608b22ff-8400-4f65-a45a-f5296671e278",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        9744,
+        7792
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-reportType",
+              "leftValue": "={{ $json.reportType }}",
+              "rightValue": "general",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "report-type-router-001",
+      "name": "Report Type Router",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        9968,
+        7792
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.4-mini-2026-03-17",
+          "mode": "list",
+          "cachedResultName": "GPT-5.4-MINI-2026-03-17"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "={{ (() => {\n  const meta = $('Set Metadata').first().json;\n  const reasons = [meta.reason1, meta.reason2].filter(r => r && r.trim());\n  const reasonBlock = reasons.length > 0\n    ? '\\n\\nОСОБОЕ ВНИМАНИЕ: Проанализируй массив разговоров с фокусом на следующие причины/темы:\\n' + reasons.map((r, i) => `${i+1}. ${r}`).join('\\n') + '\\n\\nПо каждой из указанных причин выдели:\\n- Частота упоминания (% от всех разговоров)\\n- Типичные формулировки клиентов\\n- Как менеджеры реагируют на эту тему\\n- Качество отработки (сильная/слабая)\\n- Конкретные примеры из массива\\n- Рекомендации по улучшению работы с данной причиной\\n'\n    : '';\n  return `<s>\\n<role>Стратегический бизнес-аналитик уровня собственника. Защищаешь деньги собственника.</role>\\n\\n<task>Агрегированный управленческий отчёт по массиву разговоров за период.\\nЯзык: деньги, риски, рост, управляемость.\\nНЕ: операционные советы, разбор отдельных звонков, обучение, оправдания сотрудников.</task>${reasonBlock}\\n\\n<input>Массив транскриптов: звонки / видеовстречи / переписки. Содержит: кол-во, типы, транскрипции и/или аналитические теги.</input>\\n\\n<rules>\\n- Опирайся ТОЛЬКО на предоставленный массив. Не добавляй отсутствующую информацию.\\n- Недостаток данных = управленческий риск → указывай прямо.\\n- Проценты, доли, тенденции. Жёсткие формулировки. Без воды.\\n- Если нет факта оплаты/явки/чека → оговори в начале: финансовые оценки = управленческий риск по коммуникационным исходам, не бухгалтерия.\\n- Сумма % по возражениям может превышать 100%: один разговор = несколько возражений.\\n</rules>\\n\\n<§0 name=\\\"СЕГМЕНТАЦИЯ МАССИВА ПО СЦЕНАРИЯМ\\\">\\nПеред анализом — разбей массив по речевым маркерам:\\n| Сценарий | Кол-во | Доля | Управленческий комментарий |\\n|---|---|---|---|\\n| Входящий первичный | | | Коммерчески релевантный сегмент |\\n| Сервисный входящий | | | Не оценивать как продажу |\\n| Исходящий подтверждение | | | Сервис, не продажа |\\n| Перенос / отмена | | | Удержание, не продажа |\\n| Повторный клиент | | | Отдельная воронка |\\n| Нецелевой / шум | | | Исключить из анализа |\\nПРИНЦИП: нельзя мерить смешанный поток одной метрикой.\\n</§0>\\n\\n<§1 name=\\\"EXECUTIVE SUMMARY\\\" max=\\\"7 строк\\\">\\n— Теряет бизнес деньги или зарабатывает?\\n— Основные утечки?\\n— Системный рост / деградация?\\n— Управляемость?\\n</§1>\\n\\n<§2 name=\\\"ОБЩАЯ КАРТИНА\\\">\\nТаблица:\\n| Показатель | Кол-во | Доля |\\n|---|---|---|\\n| Всего разговоров | | 100% |\\n| С коммерческим потенциалом | | X% |\\n| Дошли до договорённости | | Y% |\\n| Завершились потерей | | A% |\\n| Некоммерческий сервис / шум | | C% |\\n</§2>\\n\\n<§3 name=\\\"ТОП-3 УТЕЧКИ ДЕНЕГ\\\">\\nПо каждой:\\n| Показатель | Значение |\\n|---|---|\\n| Кол-во потерь | N |\\n| Доля от всех | X% |\\n+ Финансовое последствие\\n+ Проблема людей или системы\\n</§3>\\n\\n<§4 name=\\\"УПРАВЛЯЕМОСТЬ ПРОДАЖ\\\">\\n| Признак | Что видно | Оценка |\\n|---|---|---|\\n| Повторяемость структуры | ... | Управляемо / Частично / Нет |\\n| Единый стиль | ... | |\\n| Зависимость от людей | ... | |\\n| Контроль этапов | ... | |\\nВывод: Управляется / Частично / Не управляется\\n</§4>\\n\\n<§5 name=\\\"БАРЬЕРЫ И ПАТТЕРНЫ ОТРАБОТКИ\\\">\\nТаблица:\\n| Барьер | Кол-во | Доля | Без след. шага | Комментарий |\\n|---|---|---|---|---|\\nПо каждому: Слабый паттерн / Сильный паттерн / Внедрить\\n</§5>\\n\\n<§6 name=\\\"ТОП ВОЗРАЖЕНИЙ И СЛАБОЙ ОТРАБОТКИ\\\">\\nТаблица:\\n| № | Возражение | Встречалось | Слабо отработано |\\n|---|---|---|---|\\nПо каждому: Суть / Пример / Почему слабая / Как отрабатывать\\n</§6>\\n\\n<§7 name=\\\"КЛИЕНТСКИЕ СИГНАЛЫ РИСКА\\\">\\n| Сигнал | Доля | Что означает для выручки |\\n|---|---|---|\\n</§7>\\n\\n<§8 name=\\\"НАВЫКИ ОПЕРАТОРОВ\\\">\\n| Навык | Уровень (1–10) | Комментарий |\\n|---|---|---|\\nОшибки по этапам:\\n| Этап | Масштаб | Доля | Ключевая ошибка |\\n|---|---|---|---|\\n</§8>\\n\\n<§9 name=\\\"ПСИХОПОРТРЕТЫ КЛИЕНТОВ\\\" count=\\\"4–6\\\">\\nПо каждому: Контекст / Триггер решения / Вопросы менеджеру\\n</§9>\\n\\n<§10 name=\\\"ТОП ВОПРОСОВ КЛИЕНТОВ\\\">\\n| Вопрос | Кол-во | Доля | Скрытое сомнение |\\n|---|---|---|---|\\n</§10>\\n\\n<§11 name=\\\"СИСТЕМНЫЕ ВЫВОДЫ ДЛЯ СОБСТВЕННИКА\\\">\\n— Масштабируется ли модель продаж?\\n— Безопасно ли наращивать трафик?\\n— Где теряется контроль над деньгами?\\n</§11>\\n\\n<§12 name=\\\"ТОП-5 МЕТРИК НА КОНТРОЛЬ\\\">\\n| Метрика | Почему критична | Если игнорировать |\\n|---|---|---|\\n</§12>\\n\\n<§13 name=\\\"ЧТО ВНЕДРИТЬ\\\">\\n5–8 пунктов:\\n| Действие | Зачем | Формат |\\n|---|---|---|\\n</§13>\\n\\n<§14 name=\\\"ЖЁСТКИЙ ИТОГ\\\">\\n3–5 предложений. Факты → последствия → что делать.\\n</§14>\\n\\n</s>`;\n})() }}"
+            },
+            {
+              "content": "={{ $json.chunkText }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 16000
+        }
+      },
+      "id": "08a6d7ac-ba80-4336-a9bf-50b82e609bc8",
+      "name": "OpenAI General Report",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        10192,
+        7680
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "pnLCRRUvJqEAWTYG",
+          "name": "OpenAi (N8N API key)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.4-mini-2026-03-17",
+          "mode": "list",
+          "cachedResultName": "GPT-5.4-MINI-2026-03-17"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "<s>\n<role>Опытный руководитель отдела продаж (РОП) с 15-летним стажем в B2B-продажах промышленного оборудования.\nТы анализируешь переговоры менеджеров холодно, структурно, без сочувствия к ошибкам.\nТвоя задача — дать собственнику и РОПу полную картину: где менеджер силён, где теряет деньги, что делать.</role>\n\n<task>Индивидуальный аналитический отчёт по работе конкретного менеджера на основе массива его разговоров за период.\n\nЯзык отчёта: профессиональный, конкретный, с примерами из массива.\nФормат: структурированный документ с таблицами, примерами из разговоров, оценками и рекомендациями.\n\nНЕ допускается:\n- Общие фразы без опоры на массив\n- Выдумывание примеров, которых нет в данных\n- Смягчение формулировок ради политкорректности\n- Оценка менеджера как «хороший / плохой» без доказательной базы\n</task>\n\n<input>Массив транскриптов разговоров одного менеджера за период.\nСодержит: реплики менеджера и клиентов, контекст звонков, исходы диалогов.\nМожет включать: холодные звонки, повторные контакты, сервисные звонки, работу с заявками, контроль сделок.</input>\n\n<rules>\n- Опирайся ТОЛЬКО на предоставленный массив разговоров. Не добавляй информацию, которой нет в данных.\n- Все примеры — пересказ или цитата из массива. Никаких выдуманных диалогов.\n- Если данных недостаточно для вывода — укажи это прямо, не додумывай.\n- Проценты считай от общего количества разговоров в массиве, округляй до целых.\n- Один разговор может содержать несколько возражений — сумма процентов по возражениям может превышать 100%.\n- Уровни навыков оценивай по шкале: низкий / ниже среднего / средний / выше среднего / высокий.\n- Не используй числовые оценки (баллы), если нет объективной шкалы. Используй качественные уровни с обоснованием.\n</rules>\n\n<report>\n\n<block_0 name=\"ШАПКА ОТЧЁТА\">\nЗаголовок: **Аналитический отчёт по работе менеджера**\nМетаданные: Менеджер, Компания, Количество разговоров, Тип звонков, Тематика, Цель звонков.\n</block_0>\n\n<block_1 name=\"ОБЩАЯ ХАРАКТЕРИСТИКА МАССИВА РАЗГОВОРОВ\">\nОписательный блок (3–5 абзацев): тип работы, цели звонков, общий вывод.\n</block_1>\n\n<block_2 name=\"СТРУКТУРА ЗВОНКОВ (ПО ТИПАМ ЗАДАЧ)\">\nТаблица типов разговоров (4–7 типов).\n</block_2>\n\n<block_3 name=\"ТИПОВЫЕ РЕАКЦИИ КЛИЕНТОВ\">\n4–6 наиболее частых реакций с цитатами.\n</block_3>\n\n<block_4 name=\"СИЛЬНЫЕ СТОРОНЫ МЕНЕДЖЕРА\">\n4–6 сильных сторон с примерами из массива.\n</block_4>\n\n<block_5 name=\"СЛАБЫЕ СТОРОНЫ ПЕРЕГОВОРОВ\">\n4–6 слабых сторон с примерами и последствиями.\n</block_5>\n\n<block_6 name=\"ТИПОВОЙ СЦЕНАРИЙ РАЗГОВОРА МЕНЕДЖЕРА\">\nНумерованный список этапов (4–6).\n</block_6>\n\n<block_7 name=\"ГДЕ МЕНЕДЖЕР ТЕРЯЕТ КОММЕРЧЕСКИЕ ВОЗМОЖНОСТИ\">\n3–5 точек потери с примерами.\n</block_7>\n\n<block_8 name=\"ПРОФИЛЬ МЕНЕДЖЕРА (ОЦЕНКА НАВЫКОВ)\">\nТаблица: Категория | Уровень | Комментарий\n</block_8>\n\n<block_9 name=\"ИТОГОВАЯ ОЦЕНКА ЭФФЕКТИВНОСТИ ПЕРЕГОВОРОВ\">\nОбщий уровень, плюсы, минусы, итоговая характеристика.\n</block_9>\n\n<block_10 name=\"КЛЮЧЕВЫЕ ЗОНЫ РОСТА МЕНЕДЖЕРА\">\n3–5 направлений роста.\n</block_10>\n\n<block_11 name=\"ТОП ВОЗРАЖЕНИЙ И КАЧЕСТВО ОТРАБОТКИ\">\nСводная таблица возражений (5–7).\n</block_11>\n\n<block_12 name=\"ДЕТАЛЬНЫЙ РАЗБОР КАЖДОГО ВОЗРАЖЕНИЯ\">\nПо каждому: формулировки клиентов, пример слабой отработки, как нужно отрабатывать.\n</block_12>\n\n<block_13 name=\"ОБЩИЕ ПРИЧИНЫ СЛАБОЙ ОТРАБОТКИ ВОЗРАЖЕНИЙ\">\n4–6 системных причин.\n</block_13>\n\n<block_14 name=\"ЧТО НЕОБХОДИМО СДЕЛАТЬ\">\n5–7 конкретных рекомендаций.\n</block_14>\n\n<block_15 name=\"ПРОФИЛЬ МЕНЕДЖЕРА (ИТОГОВАЯ КАРТОЧКА)\">\nТаблица: Категория | Уровень развитости | Комментарий\n</block_15>\n\n<block_16 name=\"ЧТО УЛУЧШИТЬ (КРАТКИЙ СПИСОК)\">\n3–5 пунктов.\n</block_16>\n\n<block_17 name=\"ИТОГОВАЯ ОЦЕНКА МЕНЕДЖЕРА\">\nПлюсы, ограничения, зоны роста, финальная формулировка.\n</block_17>\n\n</report>\n\n<formatting>\n- Заголовки разделов: # жирный текст с номером\n- Таблицы: markdown-формат\n- Примеры из массива: выделяй цитаты курсивом\n- Маркеры: «—» для перечислений, «✔» для плюсов, «❌» для минусов\n</formatting>\n\n<quality_check>\n1. Каждый пример — из массива.\n2. Проценты посчитаны корректно.\n3. Сильные стороны подтверждены примерами.\n4. Слабые стороны содержат последствия.\n5. Рекомендации содержат конкретные формулировки.\n6. Нет противоречий между блоками.\n</quality_check>\n\n</s>"
+            },
+            {
+              "content": "={{ $json.chunkText }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 16000
+        }
+      },
+      "id": "3323bebc-be94-44c9-b417-9fbc7324bd52",
+      "name": "OpenAI Employee Report",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        10192,
+        7920
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "pnLCRRUvJqEAWTYG",
+          "name": "OpenAi (N8N API key)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\nconst meta = $('Chunk Parser').item.json;\n\nfunction extractText(j) {\n  if (Array.isArray(j.output)) {\n    const parts = [];\n    for (const out of j.output) {\n      if (out?.type === 'message' && Array.isArray(out.content)) {\n        for (const c of out.content) {\n          if ((c?.type === 'output_text' || c?.type === 'text') && c.text) parts.push(c.text);\n        }\n      } else if (out?.text) parts.push(out.text);\n    }\n    if (parts.length) return parts.join('\\n\\n');\n  }\n  if (Array.isArray(j.content)) {\n    const parts = j.content.filter(c => c?.text).map(c => c.text);\n    if (parts.length) return parts.join('\\n\\n');\n  }\n  if (typeof j.content === 'string' && j.content) return j.content;\n  if (j.message?.content) return j.message.content;\n  if (j.choices?.[0]?.message?.content) return j.choices[0].message.content;\n  if (j.output_text) return Array.isArray(j.output_text) ? j.output_text.join('\\n\\n') : j.output_text;\n  if (typeof j.text === 'string' && j.text) return j.text;\n  if (typeof j === 'string') return j;\n  return '';\n}\n\nfor (const item of items) {\n  const j = item.json;\n  const responseText = extractText(j);\n\n  if (!responseText) {\n    throw new Error('Не удалось извлечь текст из ответа OpenAI: ' + JSON.stringify(j).slice(0, 800));\n  }\n\n  results.push({\n    json: {\n      chunkIndex:    meta.chunkIndex,\n      totalChunks:   meta.totalChunks,\n      callsInChunk:  meta.callsInChunk,\n      totalCalls:    meta.totalCalls,\n      client:        meta.client,\n      periodStart:   meta.periodStart,\n      periodEnd:     meta.periodEnd,\n      employee:      meta.employee,\n      reportType:    meta.reportType,\n      reason1:       meta.reason1,\n      reason2:       meta.reason2,\n      fileName:      meta.fileName,\n      sourceFiles:   meta.sourceFiles,\n      markdownReport: responseText\n    }\n  });\n}\n\nreturn results;\n"
+      },
+      "id": "6468b075-ce01-4338-919e-9dd5bd2bc6d5",
+      "name": "Parse Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10448,
+        7792
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "allChunks",
+        "options": {}
+      },
+      "id": "53a121f9-4dec-4fe6-bccf-104c5f9cb751",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        10192,
+        7520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputs = $input.all().map(i => i.json);\n\nlet allChunks = [];\nfor (const top of inputs) {\n  if (top && Array.isArray(top.allChunks)) {\n    for (const c of top.allChunks) if (c) allChunks.push(c);\n  } else if (top) {\n    allChunks.push(top);\n  }\n}\nallChunks.sort((a, b) => (a.chunkIndex || 0) - (b.chunkIndex || 0));\n\nconst meta = allChunks[0] || {};\nconst totalCalls = meta.totalCalls\n  || allChunks.reduce((sum, c) => sum + (c.callsInChunk || 0), 0)\n  || allChunks.length;\n\nconst sourceFiles = meta.sourceFiles || totalCalls;\n\n// Склеиваем markdown от всех чанков\nlet combinedMarkdown;\nif (allChunks.length === 1) {\n  combinedMarkdown = allChunks[0].markdownReport || '';\n} else {\n  combinedMarkdown = allChunks\n    .map((c, i) => `# Часть ${i + 1} из ${allChunks.length}\\n\\n${c.markdownReport || ''}`)\n    .join('\\n\\n---\\n\\n');\n}\n\n// Определяем тип отчёта для заголовка\nconst reportType = meta.reportType || 'employee';\nconst reportTitle = reportType === 'general'\n  ? '📊 Общий аналитический отчёт по звонкам'\n  : '📊 Аналитический отчёт по менеджеру';\n\n// Причины (для общего отчёта)\nconst reasons = [meta.reason1, meta.reason2].filter(r => r && r.trim());\nconst reasonsLabel = reasons.length > 0\n  ? reasons.join(', ')\n  : '';\n\n// ---------- Markdown → HTML конвертер ----------\nfunction esc(s) {\n  return String(s == null ? '' : s)\n    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n}\n\nfunction mdToHtml(md) {\n  if (!md) return '';\n  const lines = md.split('\\n');\n  const out = [];\n  let i = 0;\n\n  const inlineFmt = (s) => {\n    let x = esc(s);\n    x = x.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');\n    x = x.replace(/\\*([^*\\n]+)\\*/g, '<em>$1</em>');\n    x = x.replace(/`([^`]+)`/g, '<code>$1</code>');\n    return x;\n  };\n\n  while (i < lines.length) {\n    const line = lines[i];\n    const trimmed = line.trim();\n    if (!trimmed) { i++; continue; }\n    if (/^---+$/.test(trimmed)) { out.push('<hr>'); i++; continue; }\n    const h = trimmed.match(/^(#{1,6})\\s+(.+)$/);\n    if (h) {\n      const lvl = h[1].length;\n      out.push(`<h${lvl}>${inlineFmt(h[2])}</h${lvl}>`);\n      i++; continue;\n    }\n    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {\n      const next = (lines[i + 1] || '').trim();\n      const isTable = /^\\|[\\s:|-]+\\|$/.test(next);\n      if (isTable) {\n        const headerCells = trimmed.split('|').slice(1, -1).map(c => c.trim());\n        let html = '<table><thead><tr>';\n        headerCells.forEach(c => html += `<th>${inlineFmt(c)}</th>`);\n        html += '</tr></thead><tbody>';\n        i += 2;\n        while (i < lines.length) {\n          const row = lines[i].trim();\n          if (!row.startsWith('|') || !row.endsWith('|')) break;\n          const cells = row.split('|').slice(1, -1).map(c => c.trim());\n          html += '<tr>';\n          cells.forEach(c => html += `<td>${inlineFmt(c)}</td>`);\n          html += '</tr>';\n          i++;\n        }\n        html += '</tbody></table>';\n        out.push(html);\n        continue;\n      }\n    }\n    if (/^[-•*]\\s+/.test(trimmed) || /^—\\s+/.test(trimmed)) {\n      let html = '<ul>';\n      while (i < lines.length) {\n        const t = lines[i].trim();\n        const m = t.match(/^(?:[-•*]|—)\\s+(.+)$/);\n        if (!m) break;\n        html += `<li>${inlineFmt(m[1])}</li>`;\n        i++;\n      }\n      html += '</ul>';\n      out.push(html);\n      continue;\n    }\n    if (/^\\d+\\.\\s+/.test(trimmed)) {\n      let html = '<ol>';\n      while (i < lines.length) {\n        const t = lines[i].trim();\n        const m = t.match(/^\\d+\\.\\s+(.+)$/);\n        if (!m) break;\n        html += `<li>${inlineFmt(m[1])}</li>`;\n        i++;\n      }\n      html += '</ol>';\n      out.push(html);\n      continue;\n    }\n    const para = [trimmed];\n    i++;\n    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\\s|[-•*—]\\s|\\d+\\.\\s|\\||---+$)/.test(lines[i].trim())) {\n      para.push(lines[i].trim());\n      i++;\n    }\n    out.push(`<p>${inlineFmt(para.join(' '))}</p>`);\n  }\n  return out.join('\\n');\n}\n\nconst reportBodyHtml = mdToHtml(combinedMarkdown);\nconst currentDate = new Date().toLocaleDateString('ru-RU');\nconst periodLabel = (meta.periodStart || meta.periodEnd)\n  ? `${esc(meta.periodStart || '—')} — ${esc(meta.periodEnd || '—')}`\n  : '—';\n\nconst htmlReport = `<!DOCTYPE html>\n<html lang=\"ru\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>${esc(reportTitle)} — ${esc(meta.client || '')}</title>\n  <style>\n    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    body { font-family: 'Inter', -apple-system, sans-serif; font-size: 11pt; line-height: 1.6; color: #1a1a2e; background: #fff; padding: 40px; max-width: 1100px; margin: 0 auto; }\n    .title-page { text-align: center; padding: 40px 0 30px; border-bottom: 3px solid #0f3460; margin-bottom: 32px; }\n    .title-page h1 { font-size: 26pt; color: #0f3460; margin-bottom: 10px; font-weight: 700; }\n    .title-page .subtitle { font-size: 15pt; color: #16213e; margin-bottom: 16px; font-weight: 500; }\n    .title-page p { font-size: 10.5pt; color: #555; margin: 3px 0; }\n    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 0 0 28px; }\n    .stat-card { background: #f0f4ff; border-radius: 8px; padding: 14px; text-align: center; }\n    .stat-card .number { font-size: 24pt; font-weight: 700; color: #0f3460; }\n    .stat-card .label { font-size: 9pt; color: #666; margin-top: 4px; }\n    .report-body h1 { font-size: 18pt; color: #0f3460; border-bottom: 2px solid #0f3460; padding-bottom: 8px; margin: 32px 0 14px; }\n    .report-body h2 { font-size: 15pt; color: #0f3460; border-bottom: 1px solid #d0d7e2; padding-bottom: 6px; margin: 24px 0 12px; }\n    .report-body h3 { font-size: 12.5pt; color: #16213e; margin: 18px 0 8px; }\n    .report-body h4 { font-size: 11.5pt; color: #16213e; margin: 14px 0 6px; }\n    .report-body p { margin: 8px 0; }\n    .report-body ul, .report-body ol { margin: 8px 0 12px 22px; }\n    .report-body li { margin: 3px 0; }\n    .report-body strong { color: #0f3460; }\n    .report-body code { background: #f4f4f6; padding: 1px 5px; border-radius: 3px; font-size: 95%; }\n    .report-body hr { border: none; border-top: 1px dashed #c0c8d4; margin: 28px 0; }\n    .report-body table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 10pt; }\n    .report-body th { background: #0f3460; color: #fff; padding: 8px 10px; text-align: left; font-weight: 600; }\n    .report-body td { padding: 7px 10px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }\n    .report-body tr:nth-child(even) td { background: #f8f9fa; }\n    @media print { body { padding: 20px; max-width: none; } .title-page { page-break-after: always; } .report-body h1, .report-body h2 { page-break-after: avoid; } .report-body table { page-break-inside: avoid; } }\n  </style>\n</head>\n<body>\n  <div class=\"title-page\">\n    <h1>${esc(reportTitle)}</h1>\n    <p class=\"subtitle\">${esc(meta.client || 'Клиент')}</p>\n    <p>📅 Период: ${periodLabel}</p>\n    <p>👤 ${reportType === 'general' ? 'Тип: Общий отчёт' : 'Сотрудник: ' + esc(meta.employee || 'Все сотрудники')}</p>\n    ${reasonsLabel ? `<p>🔍 Причины анализа: ${esc(reasonsLabel)}</p>` : ''}\n    <p>🗓️ Дата формирования: ${currentDate}</p>\n  </div>\n\n  <div class=\"stat-grid\">\n    <div class=\"stat-card\"><div class=\"number\">${totalCalls}</div><div class=\"label\">Звонков в анализе</div></div>\n    <div class=\"stat-card\"><div class=\"number\">${sourceFiles}</div><div class=\"label\">Файлов обработано</div></div>\n  </div>\n\n  <div class=\"report-body\">\n${reportBodyHtml}\n  </div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    meta: {\n      client:      meta.client,\n      periodStart: meta.periodStart,\n      periodEnd:   meta.periodEnd,\n      employee:    meta.employee,\n      reportType:  meta.reportType,\n      reason1:     meta.reason1,\n      reason2:     meta.reason2\n    },\n    totalCalls,\n    sourceFiles,\n    htmlReport\n  }\n}];\n"
+      },
+      "id": "9cf69fbf-e7b3-4374-9a61-191e20571ff0",
+      "name": "Compile Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10448,
+        7520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const htmlReport = $json.htmlReport;\nconst meta = $json.meta || {};\nconst totalCalls = $json.totalCalls || 0;\nconst sourceFiles = $json.sourceFiles || 0;\n\nconst safeName = (s) => String(s || '').replace(/[^\\wа-яА-ЯёЁ\\-]/g, '_').slice(0, 60);\nconst reportTypeLabel = meta.reportType === 'general' ? 'Общий' : safeName(meta.employee || 'звонки');\nconst fileName = `Отчёт_${reportTypeLabel}_${safeName(meta.client || '')}_${meta.periodStart || ''}_${meta.periodEnd || ''}.html`;\n\nconst buffer = Buffer.from(htmlReport, 'utf-8');\nconst b64 = buffer.toString('base64');\n\nreturn [{\n  json: {\n    fileName,\n    totalCalls,\n    sourceFiles,\n    htmlReport,\n    meta\n  },\n  binary: {\n    report: {\n      data: b64,\n      mimeType: 'text/html',\n      fileName: fileName\n    }\n  }\n}];\n"
+      },
+      "id": "a751d515-fd74-422a-bab5-b0240fa3be15",
+      "name": "Generate Report File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10672,
+        7520
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "tg-not-empty",
+              "leftValue": "={{ $('Set Metadata').first().json.telegramUsername }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3c58e2f3-ce08-4198-a7e5-9b3288321730",
+      "name": "Has Telegram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        10896,
+        7680
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdfshift.io/v3/convert/pdf",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"source\": {{ JSON.stringify($json.htmlReport) }},\n  \"format\": \"A4\",\n  \"margin\": \"10mm\",\n  \"landscape\": false,\n  \"use_print\": true\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "report_pdf"
+            }
+          }
+        }
+      },
+      "id": "6ff85526-f5dd-4ec4-8086-466a614d1710",
+      "name": "Convert to PDF (PDFShift)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        11088,
+        7680
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "8n9RGlSa1Lm0TPEp",
+          "name": "Helpdeskeddy Posiflora API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1nInDSuUWsjyY37BJT3ckQ8-TjH6GfcyRIOXSyOo3tyo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Лист1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nInDSuUWsjyY37BJT3ckQ8-TjH6GfcyRIOXSyOo3tyo/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "192ae181-bea6-43ee-8756-605c786aeb2c",
+      "name": "Lookup Chat ID",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        11296,
+        7680
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleApi": {
+          "id": "RmFICswEyjq9yw6V",
+          "name": "OrbitAI N8N Service Account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const lookupItem = $input.item;\nconst pdfItem = $('Convert to PDF (PDFShift)').first();\nconst reportItem = $('Generate Report File').first();\n\nif (!lookupItem || !lookupItem.json || !lookupItem.json.chat_id) {\n  throw new Error('Не найден chat_id — пользователь не зарегистрирован у бота.');\n}\n\nlet binaryToSend = null;\nlet attachmentName = '';\n\nif (pdfItem && pdfItem.binary && pdfItem.binary.report_pdf) {\n  const pdfBin = pdfItem.binary.report_pdf;\n  attachmentName = (reportItem?.json?.fileName || 'report')\n    .replace(/\\.html?$/i, '') + '.pdf';\n  binaryToSend = {\n    data: pdfBin.data,\n    mimeType: 'application/pdf',\n    fileName: attachmentName,\n    fileExtension: 'pdf'\n  };\n} else if (reportItem?.binary?.report) {\n  attachmentName = reportItem.json?.fileName || 'report.html';\n  binaryToSend = reportItem.binary.report;\n} else {\n  throw new Error('Нет ни PDF, ни HTML отчёта для отправки в Telegram.');\n}\n\nreturn {\n  json: {\n    chat_id:    lookupItem.json.chat_id,\n    username:   lookupItem.json.username,\n    first_name: lookupItem.json.first_name,\n    fileName:   attachmentName,\n    totalCalls: reportItem?.json?.totalCalls || 0,\n    sourceFiles: reportItem?.json?.sourceFiles || 0,\n    pdfStatus:  pdfItem?.binary?.report_pdf ? 'pdf' : 'html-fallback'\n  },\n  binary: {\n    report: binaryToSend\n  }\n};\n"
+      },
+      "id": "ef6b0310-12cd-464a-b122-82d7ca99231d",
+      "name": "Prepare for Telegram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        11504,
+        7680
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "sendDocument",
+        "chatId": "={{ $json.chat_id }}",
+        "binaryData": true,
+        "binaryPropertyName": "report",
+        "additionalFields": {
+          "caption": "={{ \"📊 Аналитический отчёт по звонкам\\n\\nКлиент: \" + ($('Set Metadata').first().json.client || \"—\") + \"\\nПериод: \" + ($('Set Metadata').first().json.periodStart || \"—\") + \" — \" + ($('Set Metadata').first().json.periodEnd || \"—\") + \"\\nСотрудник: \" + ($('Set Metadata').first().json.employee || \"—\") + \"\\nТип: \" + ($('Set Metadata').first().json.reportType === 'general' ? 'Общий отчёт' : 'По сотруднику') + \"\\nЗвонков: \" + $json.totalCalls + \"\\nФайлов обработано: \" + $json.sourceFiles + ($json.pdfStatus === 'html-fallback' ? '\\n\\n⚠️ PDF не сгенерирован, отправлен HTML' : '') }}"
+        }
+      },
+      "id": "2b1d46f5-a243-433d-9e2c-34c3ee849101",
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        11712,
+        7680
+      ],
+      "webhookId": "56c88ad2-eed3-420c-8d50-295184e1732b",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "telegramApi": {
+          "id": "yojrbyFI0YTmfXHn",
+          "name": "RegulationsBot_Credentials"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "employees-list",
+        "responseMode": "lastNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "empl-webhook-001",
+      "name": "Webhook: Employees List",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        8624,
+        8200
+      ],
+      "webhookId": "employees-list"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ (() => { const url = $json.body?.sheetUrl || $json.sheetUrl || ''; const m = url.match(/\\/spreadsheets\\/d\\/([a-zA-Z0-9_-]+)/); return m ? m[1] : url; })() }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ ($json.body?.sheetName ?? $json.sheetName ?? 'Лист1').trim() }}"
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "empl-sheet-read-001",
+      "name": "Sheet: Read for Employees",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        8848,
+        8200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleApi": {
+          "id": "RmFICswEyjq9yw6V",
+          "name": "OrbitAI N8N Service Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Извлекаем уникальные имена из столбца operator\nconst items = $input.all();\nconst employeeSet = new Set();\n\nfor (const item of items) {\n  const r = item.json;\n  // Ищем значение в разных вариантах названия столбца\n  const val = r['operator'] || r['Operator'] || r['Оператор'] || r['оператор'] || '';\n  const name = String(val).trim();\n  if (name && name !== 'operator' && name !== 'Operator') {\n    employeeSet.add(name);\n  }\n}\n\nconst employees = Array.from(employeeSet).sort((a, b) => a.localeCompare(b, 'ru'));\n\nreturn [{\n  json: {\n    employees,\n    count: employees.length\n  }\n}];\n"
+      },
+      "id": "empl-extract-001",
+      "name": "Extract Operators",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9072,
+        8200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "🆕 API для получения списка сотрудников.\nPOST /webhook/employees-list\nBody: { sheetUrl, sheetName }\nЧитает столбец operator из таблицы.\nВозвращает JSON: { employees: [...], count: N }"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        8600,
+        8380
+      ],
+      "typeVersion": 1,
+      "id": "sticky-empl-001",
+      "name": "Sticky Note Employees"
+    },
+    {
+      "parameters": {
+        "content": "🆕 v4 — Изменения:\n1. Убран выбор «Из архива / Загрузить файл» — всегда из архива\n2. Добавлен выбор типа отчёта: Общий / По сотруднику\n3. Для общего — поле причин (макс. 2)\n4. Для сотрудника — выпадающий список из Drive\n5. Убраны токены и стоимость из отчёта\n6. Убраны чанки — только файлы и звонки"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        8400,
+        7500
+      ],
+      "typeVersion": 1,
+      "id": "sticky-v4-001",
+      "name": "Sticky Note v4 Changes"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook (form POST)": {
+      "main": [
+        [
+          {
+            "node": "Respond: Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond: Accepted": {
+      "main": [
+        [
+          {
+            "node": "Set Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Metadata": {
+      "main": [
+        [
+          {
+            "node": "Sheet: Read Transcripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet: Read Transcripts": {
+      "main": [
+        [
+          {
+            "node": "Filter & Combine from Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter & Combine from Sheet": {
+      "main": [
+        [
+          {
+            "node": "Chunk Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk Parser": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report Type Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Type Router": {
+      "main": [
+        [
+          {
+            "node": "OpenAI General Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI Employee Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI General Report": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Employee Report": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Compile Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compile Report": {
+      "main": [
+        [
+          {
+            "node": "Generate Report File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report File": {
+      "main": [
+        [
+          {
+            "node": "Has Telegram?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Telegram?": {
+      "main": [
+        [
+          {
+            "node": "Convert to PDF (PDFShift)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to PDF (PDFShift)": {
+      "main": [
+        [
+          {
+            "node": "Lookup Chat ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Chat ID": {
+      "main": [
+        [
+          {
+            "node": "Prepare for Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare for Telegram": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Employees List": {
+      "main": [
+        [
+          {
+            "node": "Sheet: Read for Employees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet: Read for Employees": {
+      "main": [
+        [
+          {
+            "node": "Extract Operators",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "executionTimeout": 600,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

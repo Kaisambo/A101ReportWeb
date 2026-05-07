@@ -71,6 +71,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (id) {
       sheetHint.textContent = "✓ ID таблицы: " + id;
       sheetHint.className = "hint hint--ok";
+      // Автоматически загружаем сотрудников при валидном URL
+      loadEmployees();
     } else {
       sheetHint.textContent = "✗ Не удалось распознать ссылку";
       sheetHint.className = "hint hint--err";
@@ -100,19 +102,48 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // ─── Загрузка сотрудников ────────────────────────────────
+  // ─── Загрузка сотрудников из таблицы ─────────────────────
+  let loadTimer = null;
+  const sheetNameInput = document.getElementById("sheetName");
+
   async function loadEmployees() {
+    const sheetUrl = sheetUrlInput.value.trim();
+    const sheetId  = parseSheetId(sheetUrl);
+    if (!sheetId) return;
+
+    // Дебаунс — ждём 600мс после последнего ввода
+    clearTimeout(loadTimer);
+    loadTimer = setTimeout(() => doLoadEmployees(sheetUrl), 600);
+  }
+
+  async function doLoadEmployees(sheetUrl) {
     const url = CONFIG.N8N_BASE + CONFIG.EMPLOYEES_PATH;
 
+    employeeLoading.innerHTML = '<span class="spinner"></span> Загрузка списка сотрудников…';
+    employeeLoading.hidden = false;
+    employeeSelect.hidden  = true;
+
     try {
-      const resp = await fetch(url);
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sheetUrl: sheetUrl,
+          sheetName: sheetNameInput.value.trim() || "Лист1"
+        }),
+      });
+
       if (!resp.ok) throw new Error("HTTP " + resp.status);
 
       const data = await resp.json();
-      // n8n может вернуть массив или объект
       const list = Array.isArray(data)
         ? (data[0]?.employees || [])
         : (data.employees || []);
+
+      if (list.length === 0) {
+        employeeLoading.innerHTML = '⚠️ Столбец "operator" не найден или пуст в этой таблице.';
+        return;
+      }
 
       employeeSelect.innerHTML = '<option value="">— Выберите сотрудника —</option>';
       list.forEach((name) => {
@@ -127,17 +158,18 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error("Ошибка загрузки сотрудников:", err);
       employeeLoading.innerHTML =
-        '⚠️ Не удалось загрузить список. <a href="#" class="retry-link">Повторить</a>';
+        '⚠️ Не удалось загрузить. <a href="#" class="retry-link">Повторить</a>';
       employeeLoading.querySelector(".retry-link").addEventListener("click", (e) => {
         e.preventDefault();
-        employeeLoading.innerHTML =
-          '<span class="spinner"></span> Загрузка списка сотрудников…';
-        loadEmployees();
+        doLoadEmployees(sheetUrlInput.value.trim());
       });
     }
   }
 
-  loadEmployees();
+  // Перезагрузка при смене названия вкладки
+  sheetNameInput.addEventListener("change", () => {
+    if (parseSheetId(sheetUrlInput.value.trim())) loadEmployees();
+  });
 
   // ─── Отправка формы ──────────────────────────────────────
   form.addEventListener("submit", async (e) => {
