@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Аналитический отчёт по звонкам — v4</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #0a0e27;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #e0e6f0;
+    }
+
+    .form-container {
+      width: 100%;
+      max-width: 560px;
+      background: linear-gradient(145deg, #111736 0%, #0d1229 100%);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px;
+      padding: 40px 36px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03);
+    }
+
+    .form-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .form-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+
+    .form-header p {
+      font-size: 13px;
+      color: #6b7294;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #8b93b8;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      color: #e0e6f0;
+      font-size: 14px;
+      font-family: inherit;
+      transition: all 0.2s;
+      outline: none;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: #3b5bdb;
+      background: rgba(59, 91, 219, 0.06);
+      box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.1);
+    }
+
+    .form-group input::placeholder,
+    .form-group textarea::placeholder {
+      color: #4a5078;
+    }
+
+    .form-group select option {
+      background: #111736;
+      color: #e0e6f0;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    /* Report type tabs */
+    .report-type-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .report-type-tab {
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.03);
+      border: 2px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.25s;
+    }
+
+    .report-type-tab:hover {
+      border-color: rgba(59, 91, 219, 0.3);
+      background: rgba(59, 91, 219, 0.05);
+    }
+
+    .report-type-tab.active {
+      border-color: #3b5bdb;
+      background: rgba(59, 91, 219, 0.1);
+    }
+
+    .report-type-tab .tab-icon {
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .report-type-tab .tab-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #c4cbde;
+    }
+
+    .report-type-tab.active .tab-title {
+      color: #fff;
+    }
+
+    .report-type-tab .tab-desc {
+      font-size: 11px;
+      color: #5a6288;
+      margin-top: 3px;
+    }
+
+    /* Conditional sections */
+    .section-general,
+    .section-employee {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .section-general.visible,
+    .section-employee.visible {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Reason fields */
+    .reasons-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .reason-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .reason-row input {
+      flex: 1;
+    }
+
+    .btn-add-reason {
+      padding: 8px 14px;
+      background: rgba(59, 91, 219, 0.15);
+      border: 1px solid rgba(59, 91, 219, 0.3);
+      border-radius: 8px;
+      color: #7b9af5;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 4px;
+      align-self: flex-start;
+    }
+
+    .btn-add-reason:hover {
+      background: rgba(59, 91, 219, 0.25);
+    }
+
+    .btn-remove-reason {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(255,70,70,0.1);
+      border: 1px solid rgba(255,70,70,0.2);
+      color: #ff6b6b;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .btn-remove-reason:hover {
+      background: rgba(255,70,70,0.2);
+    }
+
+    /* Employee loading state */
+    .employee-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      font-size: 13px;
+      color: #6b7294;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(59, 91, 219, 0.2);
+      border-top-color: #3b5bdb;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Submit button */
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #3b5bdb 0%, #2b4ac7 100%);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s;
+      margin-top: 8px;
+      letter-spacing: 0.2px;
+    }
+
+    .btn-submit:hover {
+      background: linear-gradient(135deg, #4c6ae0 0%, #3558d4 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(59, 91, 219, 0.35);
+    }
+
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Status */
+    .status-bar {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .status-bar.success {
+      display: block;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      color: #4ade80;
+    }
+
+    .status-bar.error {
+      display: block;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+
+    .divider {
+      height: 1px;
+      background: rgba(255,255,255,0.06);
+      margin: 24px 0;
+    }
+
+    .field-hint {
+      font-size: 11px;
+      margin-top: 5px;
+      min-height: 16px;
+    }
+
+    .field-hint.valid {
+      color: #4ade80;
+    }
+
+    .field-hint.invalid {
+      color: #f87171;
+    }
+  </style>
+</head>
+<body>
+
+<div class="form-container">
+  <div class="form-header">
+    <h1>📊 Аналитический отчёт по звонкам</h1>
+    <p>v4 — Формирование отчёта из архива</p>
+  </div>
+
+  <form id="reportForm">
+    <!-- Клиент -->
+    <div class="form-group">
+      <label>Клиент</label>
+      <input type="text" name="client" placeholder="Название клиента / компании" required>
+    </div>
+
+    <!-- Ссылка на Google Sheet -->
+    <div class="form-group">
+      <label>Ссылка на Google Sheet с транскриптами</label>
+      <input type="url" name="sheetUrl" id="sheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/.../" required>
+      <div class="field-hint" id="sheetHint"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Тип отчёта -->
+    <div class="form-group">
+      <label>Тип отчёта</label>
+    </div>
+
+    <div class="report-type-tabs">
+      <div class="report-type-tab active" data-type="employee" onclick="setReportType('employee')">
+        <div class="tab-icon">👤</div>
+        <div class="tab-title">По сотруднику</div>
+        <div class="tab-desc">Индивидуальный отчёт</div>
+      </div>
+      <div class="report-type-tab" data-type="general" onclick="setReportType('general')">
+        <div class="tab-icon">📋</div>
+        <div class="tab-title">Общий отчёт</div>
+        <div class="tab-desc">По причинам</div>
+      </div>
+    </div>
+
+    <!-- === Секция: По сотруднику === -->
+    <div class="section-employee visible" id="sectionEmployee">
+      <div class="form-group">
+        <label>Сотрудник</label>
+        <div class="employee-loading" id="employeeLoading">
+          <div class="spinner"></div>
+          Загрузка списка сотрудников...
+        </div>
+        <select name="employee" id="employeeSelect" style="display:none" required>
+          <option value="">— Выберите сотрудника —</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- === Секция: Общий отчёт === -->
+    <div class="section-general" id="sectionGeneral">
+      <div class="form-group">
+        <label>Причины для анализа (необязательно, макс. 2)</label>
+        <div class="reasons-container" id="reasonsContainer">
+          <div class="reason-row" id="reason1Row">
+            <input type="text" name="reason1" placeholder="Причина 1 (например: Отказ из-за цены)">
+          </div>
+        </div>
+        <button type="button" class="btn-add-reason" id="btnAddReason" onclick="addReason()">+ Добавить вторую причину</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Telegram -->
+    <div class="form-group">
+      <label>Telegram (@username) — для отправки отчёта</label>
+      <input type="text" name="telegramUsername" placeholder="@username">
+    </div>
+
+    <input type="hidden" name="reportType" id="reportTypeInput" value="employee">
+
+    <button type="submit" class="btn-submit" id="btnSubmit">Сформировать отчёт</button>
+
+    <div class="status-bar" id="statusBar"></div>
+  </form>
+</div>
+
+<script>
+  // =======================================
+  // КОНФИГУРАЦИЯ — укажите ваш URL n8n
+  // =======================================
+  const N8N_BASE_URL = 'https://YOUR-N8N-INSTANCE.com/webhook';
+  const FORM_WEBHOOK_PATH = '/d7f0a036-c886-4dc2-9163-057d955ca5ee';
+  const EMPLOYEES_WEBHOOK_PATH = '/employees-list';
+
+  // =======================================
+  // Парсинг Google Sheet URL
+  // =======================================
+  function parseSheetId(url) {
+    if (!url) return null;
+    const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+    return match ? match[1] : null;
+  }
+
+  function parseSheetGid(url) {
+    if (!url) return null;
+    const match = url.match(/[#&]gid=(\d+)/);
+    return match ? match[1] : null;
+  }
+
+  // Валидация поля при вводе
+  document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('sheetUrlInput');
+    const hint = document.getElementById('sheetHint');
+
+    input.addEventListener('input', () => {
+      const val = input.value.trim();
+      if (!val) {
+        hint.textContent = '';
+        hint.className = 'field-hint';
+        return;
+      }
+      const id = parseSheetId(val);
+      if (id) {
+        hint.textContent = '✓ ID таблицы: ' + id;
+        hint.className = 'field-hint valid';
+      } else {
+        hint.textContent = '✗ Не удалось распознать ссылку на Google Sheet';
+        hint.className = 'field-hint invalid';
+      }
+    });
+  });
+
+  // =======================================
+  // Переключение типа отчёта
+  // =======================================
+  function setReportType(type) {
+    document.getElementById('reportTypeInput').value = type;
+
+    document.querySelectorAll('.report-type-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.type === type);
+    });
+
+    const sectionEmployee = document.getElementById('sectionEmployee');
+    const sectionGeneral = document.getElementById('sectionGeneral');
+
+    if (type === 'employee') {
+      sectionEmployee.classList.add('visible');
+      sectionGeneral.classList.remove('visible');
+      document.getElementById('employeeSelect').required = true;
+    } else {
+      sectionEmployee.classList.remove('visible');
+      sectionGeneral.classList.add('visible');
+      document.getElementById('employeeSelect').required = false;
+    }
+  }
+
+  // =======================================
+  // Причины (макс. 2)
+  // =======================================
+  let reasonCount = 1;
+
+  function addReason() {
+    if (reasonCount >= 2) return;
+    reasonCount = 2;
+
+    const container = document.getElementById('reasonsContainer');
+    const row = document.createElement('div');
+    row.className = 'reason-row';
+    row.id = 'reason2Row';
+    row.innerHTML = `
+      <input type="text" name="reason2" placeholder="Причина 2 (например: Долгое ожидание ответа)">
+      <button type="button" class="btn-remove-reason" onclick="removeReason()">×</button>
+    `;
+    container.appendChild(row);
+    document.getElementById('btnAddReason').style.display = 'none';
+  }
+
+  function removeReason() {
+    const row = document.getElementById('reason2Row');
+    if (row) row.remove();
+    reasonCount = 1;
+    document.getElementById('btnAddReason').style.display = 'inline-flex';
+  }
+
+  // =======================================
+  // Загрузка списка сотрудников из Drive
+  // =======================================
+  async function loadEmployees() {
+    const select = document.getElementById('employeeSelect');
+    const loading = document.getElementById('employeeLoading');
+
+    try {
+      const resp = await fetch(N8N_BASE_URL + EMPLOYEES_WEBHOOK_PATH);
+      const data = await resp.json();
+
+      const employees = data.employees || data[0]?.employees || [];
+
+      select.innerHTML = '<option value="">— Выберите сотрудника —</option>';
+      employees.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+
+      loading.style.display = 'none';
+      select.style.display = 'block';
+    } catch (err) {
+      loading.innerHTML = '⚠️ Не удалось загрузить список. <a href="#" onclick="loadEmployees(); return false;" style="color:#7b9af5;">Повторить</a>';
+      console.error('Ошибка загрузки сотрудников:', err);
+    }
+  }
+
+  // =======================================
+  // Отправка формы
+  // =======================================
+  document.getElementById('reportForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const btn = document.getElementById('btnSubmit');
+    const status = document.getElementById('statusBar');
+
+    btn.disabled = true;
+    btn.textContent = 'Отправка...';
+    status.style.display = 'none';
+
+    const formData = new FormData(e.target);
+    const payload = Object.fromEntries(formData.entries());
+
+    // Устанавливаем source=archive (всегда из архива)
+    payload.source = 'Из архива';
+
+    // Валидация и передача ссылки на Google Sheet
+    const sheetId = parseSheetId(payload.sheetUrl || '');
+    if (!sheetId) {
+      status.className = 'status-bar error';
+      status.textContent = '❌ Некорректная ссылка на Google Sheet. Вставьте полную ссылку вида https://docs.google.com/spreadsheets/d/.../';
+      status.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Сформировать отчёт';
+      return;
+    }
+    payload.sheetId = sheetId;
+    payload.sheetGid = parseSheetGid(payload.sheetUrl || '') || '0';
+
+    // Если общий отчёт — убираем сотрудника
+    if (payload.reportType === 'general') {
+      payload.employee = 'Все сотрудники';
+    }
+
+    try {
+      const resp = await fetch(N8N_BASE_URL + FORM_WEBHOOK_PATH, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await resp.json();
+
+      status.className = 'status-bar success';
+      status.textContent = '✅ Запрос принят! Отчёт будет отправлен в Telegram после обработки.';
+      status.style.display = 'block';
+    } catch (err) {
+      status.className = 'status-bar error';
+      status.textContent = '❌ Ошибка отправки: ' + err.message;
+      status.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Сформировать отчёт';
+    }
+  });
+
+  // Загружаем сотрудников при старте
+  loadEmployees();
+</script>
+
+</body>
+</html>
